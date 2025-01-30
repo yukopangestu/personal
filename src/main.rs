@@ -1,37 +1,88 @@
-// use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use reqwest::Client;
+use dotenv::dotenv;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
 
-// #[get("/")]
-// async fn hello() -> impl Responder {
-//     HttpResponse::Ok().body("Hi world!")
-// }
+#[derive(Serialize)]
+struct OpenAIObject {
+    role: String,
+    content: String,
+}
 
-// #[post("/echo")]
-// async fn echo(req_body: String) -> impl Responder {
-//     HttpResponse::Ok().body(req_body)
-// }
+#[derive(Serialize)]
+struct OpenAIRequest {
+    model: String,
+    messages: Vec<OpenAIObject>,
+    max_tokens: u32,
+}
 
-// async fn manual_hello() -> impl Responder {
-//     HttpResponse::Ok().body("Hey there!")
-// }
+#[derive(Deserialize, Debug)]
+struct OpenAIResponse {
+    choices: Vec<Choice>,
+}
 
-// #[actix_web::main]
-// async fn main() -> std::io::Result<()> {
-//     HttpServer::new(|| {
-//         App::new()
-//             .service(hello)
-//             .service(echo)
-//             .route("/hey", web::get().to(manual_hello))
-//     })
-//     .bind(("127.0.0.1", 8080))?
-//     .run()
-//     .await
-// }
+#[derive(Deserialize, Debug)]
+struct Choice {
+    message: Message,
+}
 
-use crate::garden::vegetables::Asparagus;
+#[derive(Deserialize, Debug)]
+struct Message {
+    role: String,
+    content: String,
+}
 
-pub mod garden;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv().ok();
 
-fn main() {
-    let plant = Asparagus {};
-    println!("I'm growing {plant:?}!");
+    // Use environment variable for API key
+    let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set");
+    let client = Client::new();
+
+    // Create the messages
+    let messages = vec![
+        OpenAIObject {
+            role: "system".to_string(),
+            content: "You are a helpful assistant.".to_string(),
+        },
+        OpenAIObject {
+            role: "user".to_string(),
+            content: "Give me a simple example of how to handle HTTP requests in Rust.".to_string(),
+        },
+    ];
+
+    println!("API Key {}", api_key);
+
+    // Define the request payload
+    let request_body = OpenAIRequest {
+        model: "gpt-4".to_string(), // Use the desired model
+        messages: messages,
+        max_tokens: 100,
+    };
+
+    // Send the request to OpenAI's API
+    let response = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+        .await?;
+
+    // Check if the request was successful
+    if response.status().is_success() {
+        let response_body: OpenAIResponse = response.json().await?;
+        if let Some(choice) = response_body.choices.first() {
+            println!("Response: {}", choice.message.content);
+        } else {
+            println!("No response from OpenAI.");
+        }
+    } else {
+        println!("Error: {}", response.status());
+        let error_text = response.text().await?;
+        println!("Details: {}", error_text);
+    }
+
+    Ok(())
 }
