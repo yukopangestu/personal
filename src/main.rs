@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
     // Use environment variable for API key
-    let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set");
+    let api_key = std::env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY must be set");
     let client = Client::new();
 
     // Create the messages
@@ -51,8 +51,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             content: "Give me a simple example of how to handle HTTP requests in Rust.".to_string(),
         },
     ];
-
-    println!("API Key {}", api_key);
 
     // Define the request payload
     let request_body = OpenAIRequest {
